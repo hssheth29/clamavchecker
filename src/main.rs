@@ -1,40 +1,60 @@
-use os_info::Type;
 use std::process::Command;
+use std::io::ErrorKind;
 
-fn main() {
-    // Check if ClamAV is installed
-    if is_clamav_installed() {
-        println!("ClamAV is already installed.");
-    } else {
-        // Identify the Linux distribution and install ClamAV accordingly
-        let info = os_info::get();
-        println!("OS information: {}", info);
-        match info.os_type() {
-            Type::Ubuntu | Type::Debian => {
-                // For Debian-based systems
-                run_command("sudo", &["apt-get", "update"]);
-                run_command("sudo", &["apt-get", "install", "-y", "clamav"]);
-            },
-            Type::Fedora | Type::CentOS => {
-                // For Fedora or CentOS
-                run_command("sudo", &["dnf", "install", "-y", "clamav"]);
-            },
-            // Add more distributions as needed
-            _ => println!("Unsupported Linux distribution for automated ClamAV installation."),
+fn is_clamav_installed() -> bool {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("clamscan --version")
+        .output();
+
+    match output {
+        Ok(output) => output.status.success(),
+        Err(e) => {
+            if e.kind() == ErrorKind::NotFound {
+                false
+            } else {
+                panic!("Failed to execute command: {}", e);
+            }
         }
     }
 }
 
-fn is_clamav_installed() -> bool {
-    match Command::new("clamscan").arg("--version").output() {
-        Ok(output) => output.status.success(),
-        Err(_) => false,
+fn install_clamav() {
+    let mut command = Command::new("sh");
+    command.arg("-c");
+
+    let install_cmd = if cfg!(target_os = "redox") {
+        "pkg install clamav"
+    } else if cfg!(target_os = "linux") {
+        let os_release = std::fs::read_to_string("/etc/os-release")
+            .unwrap_or_else(|_| String::new());
+
+        if os_release.contains("ID=debian") || os_release.contains("ID=ubuntu") {
+            "apt-get update && apt-get install -y clamav"
+        } else if os_release.contains("ID=fedora") || os_release.contains("ID=rhel") || os_release.contains("ID=centos") {
+            "dnf install -y clamav || yum install -y clamav"
+        } else {
+            panic!("Unsupported Linux distribution.");
+        }
+    } else {
+        panic!("Unsupported OS.");
+    };
+
+    command.arg(install_cmd);
+
+    let output = command.output().expect("Failed to execute command");
+
+    if !output.status.success() {
+        panic!("Failed to install ClamAV: {:?}", output);
     }
 }
 
-fn run_command(command: &str, args: &[&str]) {
-    match Command::new(command).args(args).status() {
-        Ok(status) if status.success() => println!("ClamAV installed successfully."),
-        _ => println!("Failed to execute command."),
+fn main() {
+    if is_clamav_installed() {
+        println!("ClamAV is installed.");
+    } else {
+        println!("Installing ClamAV...");
+        install_clamav();
+        println!("ClamAV installation completed.");
     }
 }
