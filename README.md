@@ -13,13 +13,13 @@ Additionally, the installation process requires superuser privileges. Ensure you
 Clone this repository to your local machine using the following command:
 
 ```
-git clone <repository-url>
+git clone https://github.com/hssheth29/clamavchecker.git
 ```
 
 Navigate to the cloned directory:
 
 ```
-cd <cloned-directory-name>
+cd clamavchecker
 ```
 
 Compile the program:
@@ -33,7 +33,7 @@ cargo build --release
 To run the program, navigate to the target release directory and execute the binary with superuser privileges:
 
 ```
-sudo ./target/release/clamav_installer
+sudo ./target/release/clamavchecker
 ```
 
 ### Important Reminder
